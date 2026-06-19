@@ -1,0 +1,210 @@
+<!--
+  Server Detail Template
+  ======================
+  Shows comprehensive server information including:
+  - Server metadata (name, IP, provider, date)
+  - Latest risk score circle
+  - Scan history table
+  - Quick scan action
+-->
+{% extends "base.html" %}
+
+{% block title %}{{ server.server_name }}{% endblock %}
+{% block page_title %}Server Details{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+
+    <!-- Page Header -->
+    <div class="page-header">
+        <div>
+            <h1>{{ server.server_name }}</h1>
+            <p class="text-muted-custom mb-0" style="font-size: 0.85rem;">
+                <span class="font-mono">{{ server.ip_address }}</span>
+                &bull;
+                {% set prov = server.provider|lower %}
+                <span class="provider-badge provider-{% if 'aws' in prov %}aws{% elif 'gcp' in prov or 'google' in prov %}gcp{% elif 'azure' in prov %}azure{% elif 'digital' in prov %}digitalocean{% else %}other{% endif %}">
+                    {{ server.provider }}
+                </span>
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <form method="POST" action="{{ url_for('scan_server', server_id=server.id) }}" style="display: inline;">
+                <button type="submit" class="btn-cyber btn-cyber-primary" id="btnScanServer">
+                    <i class="bi bi-radar"></i> Run Scan
+                </button>
+            </form>
+            <a href="{{ url_for('edit_server', server_id=server.id) }}" class="btn-cyber btn-cyber-secondary">
+                <i class="bi bi-pencil"></i> Edit
+            </a>
+            <a href="{{ url_for('servers') }}" class="btn-cyber btn-cyber-secondary">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-4">
+
+        <!-- Server Info -->
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <span><i class="bi bi-info-circle me-2 text-accent"></i>Server Information</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <div class="detail-label">Server Name</div>
+                            <div class="detail-value">{{ server.server_name }}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">IP Address</div>
+                            <div class="detail-value mono">{{ server.ip_address }}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Cloud Provider</div>
+                            <div class="detail-value">{{ server.provider }}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Date Added</div>
+                            <div class="detail-value">{{ server.date_added.strftime('%B %d, %Y') }}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Total Scans</div>
+                            <div class="detail-value">{{ scan_sessions|length }}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Last Scanned</div>
+                            <div class="detail-value">
+                                {% if scan_sessions %}
+                                    {{ scan_sessions[0].scan_time.strftime('%b %d, %Y %H:%M') }}
+                                {% else %}
+                                    Never
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Scan History -->
+            <div class="card">
+                <div class="card-header">
+                    <span><i class="bi bi-clock-history me-2 text-accent"></i>Scan History</span>
+                </div>
+                <div class="card-body p-0">
+                    {% if scan_sessions %}
+                    <div class="table-responsive">
+                        <table class="table-dark-custom">
+                            <thead>
+                                <tr>
+                                    <th>Scan Date</th>
+                                    <th>Risk Score</th>
+                                    <th>Risk Level</th>
+                                    <th class="text-end">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for session in scan_sessions %}
+                                <tr>
+                                    <td>
+                                        <span class="mono" style="font-size: 0.82rem;">
+                                            {{ session.scan_time.strftime('%Y-%m-%d %H:%M:%S') }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="font-mono" style="font-weight: 700;">{{ session.risk_score }}</span>
+                                        <span style="color: var(--text-muted); font-size: 0.75rem;">/100</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge-risk badge-risk-{{ session.risk_level|lower }}">
+                                            {{ session.risk_level }}
+                                        </span>
+                                    </td>
+                                    <td class="text-end">
+                                        <a href="{{ url_for('view_scan_session', session_id=session.id) }}"
+                                           class="btn-cyber btn-cyber-secondary btn-cyber-sm">
+                                            <i class="bi bi-eye"></i> View
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="empty-state" style="padding: 40px 20px;">
+                        <div class="empty-icon"><i class="bi bi-radar"></i></div>
+                        <h3>No Scan History</h3>
+                        <p>Run your first security scan to see results here.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Risk Score Sidebar -->
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <span><i class="bi bi-speedometer2 me-2 text-accent"></i>Latest Risk Score</span>
+                </div>
+                <div class="card-body text-center" style="padding: 30px 20px;">
+                    {% if latest_session %}
+                        <div class="risk-score-circle mx-auto mb-3"
+                             style="--score-color: {{ latest_session.risk_color }}; --score-pct: {{ latest_session.risk_score }};">
+                            <span class="score-value" style="color: {{ latest_session.risk_color }};">
+                                {{ latest_session.risk_score }}
+                            </span>
+                            <span class="score-label">Risk Score</span>
+                        </div>
+                        <span class="badge-risk badge-risk-{{ latest_session.risk_level|lower }}" style="font-size: 0.85rem; padding: 6px 16px;">
+                            {{ latest_session.risk_level }} Risk
+                        </span>
+                    {% else %}
+                        <div style="padding: 20px;">
+                            <i class="bi bi-shield-slash" style="font-size: 3rem; color: var(--text-muted); opacity: 0.4;"></i>
+                            <p style="color: var(--text-muted); margin-top: 12px; font-size: 0.85rem;">
+                                No scan data available
+                            </p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Quick Port Status (if scanned) -->
+            {% if latest_results %}
+            <div class="card mt-4">
+                <div class="card-header">
+                    <span><i class="bi bi-plug me-2 text-accent"></i>Port Status</span>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table-dark-custom">
+                        <thead>
+                            <tr>
+                                <th>Port</th>
+                                <th>Service</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for result in latest_results %}
+                            <tr>
+                                <td><span class="mono">{{ result.port }}</span></td>
+                                <td style="font-size: 0.82rem;">{{ result.service }}</td>
+                                <td>
+                                    <span class="badge-port-{{ result.status }}">{{ result.status }}</span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+    </div><!-- /row -->
+
+</div>
+{% endblock %}

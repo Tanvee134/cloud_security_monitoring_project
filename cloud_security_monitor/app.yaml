@@ -1,0 +1,18 @@
+# Google App Engine Configuration
+# =================================
+# Deploy to Google Cloud App Engine with:
+#   gcloud app deploy app.yaml
+
+runtime: python312
+entrypoint: gunicorn -b :$PORT app:app
+
+instance_class: F2
+
+env_variables:
+  SECRET_KEY: "your-production-secret-key-here"
+  DATABASE_URL: "mysql+pymysql://user:password@/cloud_security_db?unix_socket=/cloudsql/PROJECT:REGION:INSTANCE"
+
+automatic_scaling:
+  min_instances: 1
+  max_instances: 5
+  target_cpu_utilization: 0.75

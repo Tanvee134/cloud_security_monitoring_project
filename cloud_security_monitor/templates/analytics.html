@@ -1,0 +1,323 @@
+<!--
+  Analytics Template
+  ==================
+  Security analytics dashboard with:
+  - Pie chart for risk distribution
+  - Bar chart for server risk scores
+  - Summary statistics table
+-->
+{% extends "base.html" %}
+
+{% block title %}Analytics{% endblock %}
+{% block page_title %}Security Analytics{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+
+    <!-- Page Header -->
+    <div class="page-header">
+        <div>
+            <h1>Analytics</h1>
+            <p class="text-muted-custom mb-0" style="font-size: 0.85rem;">
+                Comprehensive security analytics and risk insights
+            </p>
+        </div>
+    </div>
+
+    <!-- Summary Stats Row -->
+    <div class="row g-3 mb-4">
+        <div class="col-lg-3 col-sm-6">
+            <div class="stat-card stat-primary">
+                <div class="stat-icon"><i class="bi bi-hdd-rack"></i></div>
+                <div class="stat-value">{{ stats.total_servers }}</div>
+                <div class="stat-label">Total Servers</div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-sm-6">
+            <div class="stat-card stat-info">
+                <div class="stat-icon"><i class="bi bi-radar"></i></div>
+                <div class="stat-value">{{ stats.total_scans }}</div>
+                <div class="stat-label">Total Scans</div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-sm-6">
+            <div class="stat-card stat-low">
+                <div class="stat-icon"><i class="bi bi-graph-down-arrow"></i></div>
+                <div class="stat-value">{{ "%.1f"|format(stats.avg_score) }}</div>
+                <div class="stat-label">Avg Risk Score</div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-sm-6">
+            <div class="stat-card stat-high">
+                <div class="stat-icon"><i class="bi bi-exclamation-diamond"></i></div>
+                <div class="stat-value">{{ stats.high_risk + stats.critical_risk }}</div>
+                <div class="stat-label">Servers At Risk</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="row g-4 mb-4">
+
+        <!-- Risk Distribution Pie Chart -->
+        <div class="col-lg-5">
+            <div class="card h-100 slide-up">
+                <div class="card-header">
+                    <span><i class="bi bi-pie-chart me-2 text-accent"></i>Risk Distribution</span>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container" style="min-height: 320px;">
+                        <canvas id="riskDistributionChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Server Risk Scores Bar Chart -->
+        <div class="col-lg-7">
+            <div class="card h-100 slide-up" style="animation-delay: 0.1s;">
+                <div class="card-header">
+                    <span><i class="bi bi-bar-chart me-2 text-accent"></i>Server Risk Scores</span>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container" style="min-height: 320px;">
+                        <canvas id="serverRiskBarChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Open Ports Analysis -->
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="card slide-up" style="animation-delay: 0.2s;">
+                <div class="card-header">
+                    <span><i class="bi bi-plug me-2 text-accent"></i>Most Common Open Ports</span>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container" style="min-height: 280px;">
+                        <canvas id="openPortsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Risk Trend (scan history) -->
+        <div class="col-lg-6">
+            <div class="card slide-up" style="animation-delay: 0.3s;">
+                <div class="card-header">
+                    <span><i class="bi bi-graph-up me-2 text-accent"></i>Risk Score Trend</span>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container" style="min-height: 280px;">
+                        <canvas id="riskTrendChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // === Chart.js Global Defaults ===
+    Chart.defaults.color = '#94a3b8';
+    Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
+    Chart.defaults.font.family = "'Inter', sans-serif";
+
+    // === Data from Flask ===
+    const riskCounts = {{ risk_counts | tojson }};
+    const serverData = {{ server_risk_data | tojson }};
+    const portData = {{ port_data | tojson }};
+    const trendData = {{ trend_data | tojson }};
+
+    const totalRiskCount = riskCounts.low + riskCounts.medium + riskCounts.high + riskCounts.critical;
+
+    // === 1. Risk Distribution Doughnut ===
+    new Chart(document.getElementById('riskDistributionChart'), {
+        type: 'doughnut',
+        data: {
+            labels: ['Low Risk', 'Medium Risk', 'High Risk', 'Critical Risk'],
+            datasets: [{
+                data: totalRiskCount > 0
+                    ? [riskCounts.low, riskCounts.medium, riskCounts.high, riskCounts.critical]
+                    : [1],
+                backgroundColor: totalRiskCount > 0
+                    ? ['#00e676', '#ffab00', '#ff5252', '#e91e63']
+                    : ['rgba(100,116,139,0.2)'],
+                borderWidth: 0,
+                hoverOffset: 10
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '65%',
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        padding: 20,
+                        usePointStyle: true,
+                        pointStyleWidth: 10,
+                        font: { size: 12, weight: '500' }
+                    }
+                },
+                tooltip: {
+                    backgroundColor: '#141b2d',
+                    titleFont: { size: 13, weight: '600' },
+                    bodyFont: { size: 12 },
+                    padding: 12,
+                    borderColor: 'rgba(0,212,255,0.2)',
+                    borderWidth: 1
+                }
+            }
+        }
+    });
+
+    // === 2. Server Risk Bar Chart ===
+    const barColors = serverData.scores.map(s => {
+        if (s <= 25) return '#00e676';
+        if (s <= 50) return '#ffab00';
+        if (s <= 75) return '#ff5252';
+        return '#e91e63';
+    });
+
+    new Chart(document.getElementById('serverRiskBarChart'), {
+        type: 'bar',
+        data: {
+            labels: serverData.names.length > 0 ? serverData.names : ['No servers'],
+            datasets: [{
+                label: 'Risk Score',
+                data: serverData.names.length > 0 ? serverData.scores : [0],
+                backgroundColor: serverData.names.length > 0 ? barColors : ['rgba(100,116,139,0.2)'],
+                borderRadius: 6,
+                borderSkipped: false,
+                barThickness: 24
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y',
+            scales: {
+                x: {
+                    max: 100,
+                    grid: { color: 'rgba(255,255,255,0.04)' },
+                    ticks: { font: { size: 11 } }
+                },
+                y: {
+                    grid: { display: false },
+                    ticks: { font: { size: 12, weight: '500' } }
+                }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#141b2d',
+                    borderColor: 'rgba(0,212,255,0.2)',
+                    borderWidth: 1,
+                    padding: 12
+                }
+            }
+        }
+    });
+
+    // === 3. Open Ports Frequency Chart ===
+    new Chart(document.getElementById('openPortsChart'), {
+        type: 'bar',
+        data: {
+            labels: portData.ports.length > 0 ? portData.ports : ['No data'],
+            datasets: [{
+                label: 'Times Found Open',
+                data: portData.ports.length > 0 ? portData.counts : [0],
+                backgroundColor: [
+                    'rgba(0, 212, 255, 0.6)',
+                    'rgba(124, 58, 237, 0.6)',
+                    'rgba(0, 230, 118, 0.6)',
+                    'rgba(255, 171, 0, 0.6)',
+                    'rgba(255, 82, 82, 0.6)',
+                    'rgba(233, 30, 99, 0.6)'
+                ],
+                borderRadius: 6,
+                borderSkipped: false,
+                barThickness: 32
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(255,255,255,0.04)' },
+                    ticks: { stepSize: 1, font: { size: 11 } }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { font: { size: 11, family: "'JetBrains Mono', monospace" } }
+                }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#141b2d',
+                    borderColor: 'rgba(0,212,255,0.2)',
+                    borderWidth: 1,
+                    padding: 12
+                }
+            }
+        }
+    });
+
+    // === 4. Risk Score Trend Line Chart ===
+    new Chart(document.getElementById('riskTrendChart'), {
+        type: 'line',
+        data: {
+            labels: trendData.dates.length > 0 ? trendData.dates : ['No data'],
+            datasets: [{
+                label: 'Avg Risk Score',
+                data: trendData.dates.length > 0 ? trendData.scores : [0],
+                borderColor: '#00d4ff',
+                backgroundColor: 'rgba(0, 212, 255, 0.1)',
+                fill: true,
+                tension: 0.4,
+                pointBackgroundColor: '#00d4ff',
+                pointBorderColor: '#0c1224',
+                pointBorderWidth: 2,
+                pointRadius: 5,
+                pointHoverRadius: 7
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    min: 0,
+                    max: 100,
+                    grid: { color: 'rgba(255,255,255,0.04)' },
+                    ticks: { font: { size: 11 } }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { font: { size: 11 } }
+                }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#141b2d',
+                    borderColor: 'rgba(0,212,255,0.2)',
+                    borderWidth: 1,
+                    padding: 12
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}

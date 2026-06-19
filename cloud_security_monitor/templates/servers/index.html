@@ -1,0 +1,130 @@
+<!--
+  Servers List Template
+  =====================
+  Displays all registered servers in a table with:
+  - Server name, IP address, cloud provider, date added
+  - Action buttons: Scan, View, Edit, Delete
+  - "Add Server" button in page header
+-->
+{% extends "base.html" %}
+
+{% block title %}Servers{% endblock %}
+{% block page_title %}Server Management{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+
+    <!-- Page Header -->
+    <div class="page-header">
+        <div>
+            <h1>Servers</h1>
+            <p class="text-muted-custom mb-0" style="font-size: 0.85rem;">
+                Manage and monitor your cloud infrastructure
+            </p>
+        </div>
+        <a href="{{ url_for('add_server') }}" class="btn-cyber btn-cyber-primary" id="btnAddServer">
+            <i class="bi bi-plus-lg"></i>
+            Add Server
+        </a>
+    </div>
+
+    <!-- Servers Table Card -->
+    <div class="card">
+        <div class="card-header">
+            <span><i class="bi bi-hdd-rack me-2 text-accent"></i>Registered Servers</span>
+            <span style="font-size: 0.8rem; color: var(--text-muted);">{{ servers|length }} total</span>
+        </div>
+        <div class="card-body p-0">
+            {% if servers %}
+            <div class="table-responsive">
+                <table class="table-dark-custom" id="serversTable">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Server Name</th>
+                            <th>IP Address</th>
+                            <th>Provider</th>
+                            <th>Date Added</th>
+                            <th>Latest Risk</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for server in servers %}
+                        <tr>
+                            <td>
+                                <span class="mono" style="color: var(--text-muted);">{{ loop.index }}</span>
+                            </td>
+                            <td>
+                                <div style="font-weight: 600;">{{ server.server_name }}</div>
+                            </td>
+                            <td>
+                                <span class="mono">{{ server.ip_address }}</span>
+                            </td>
+                            <td>
+                                {% set prov = server.provider|lower %}
+                                <span class="provider-badge provider-{% if 'aws' in prov %}aws{% elif 'gcp' in prov or 'google' in prov %}gcp{% elif 'azure' in prov %}azure{% elif 'digital' in prov %}digitalocean{% else %}other{% endif %}">
+                                    {{ server.provider }}
+                                </span>
+                            </td>
+                            <td>
+                                <span style="font-size: 0.82rem; color: var(--text-secondary);">
+                                    {{ server.date_added.strftime('%b %d, %Y') }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if server.latest_risk %}
+                                    <span class="badge-risk badge-risk-{{ server.latest_risk|lower }}">
+                                        {{ server.latest_risk }}
+                                    </span>
+                                {% else %}
+                                    <span class="badge-risk badge-risk-none">Not Scanned</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <!-- Scan Button -->
+                                <form method="POST" action="{{ url_for('scan_server', server_id=server.id) }}" style="display: inline;">
+                                    <button type="submit" class="btn-cyber btn-cyber-primary btn-cyber-sm" title="Run Scan">
+                                        <i class="bi bi-radar"></i> Scan
+                                    </button>
+                                </form>
+                                <!-- View Button -->
+                                <a href="{{ url_for('server_detail', server_id=server.id) }}"
+                                   class="btn-cyber btn-cyber-secondary btn-cyber-sm" title="View Details">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <!-- Edit Button -->
+                                <a href="{{ url_for('edit_server', server_id=server.id) }}"
+                                   class="btn-cyber btn-cyber-secondary btn-cyber-sm" title="Edit Server">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <!-- Delete Button -->
+                                <form method="POST" action="{{ url_for('delete_server', server_id=server.id) }}"
+                                      style="display: inline;"
+                                      onsubmit="return confirm('Are you sure you want to delete this server? All scan history will be lost.');">
+                                    <button type="submit" class="btn-cyber btn-cyber-danger btn-cyber-sm" title="Delete Server">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <!-- Empty State -->
+            <div class="empty-state">
+                <div class="empty-icon"><i class="bi bi-hdd-rack"></i></div>
+                <h3>No Servers Registered</h3>
+                <p>Add your first server to start monitoring your cloud infrastructure.</p>
+                <a href="{{ url_for('add_server') }}" class="btn-cyber btn-cyber-primary">
+                    <i class="bi bi-plus-lg"></i> Add Your First Server
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+{% endblock %}
